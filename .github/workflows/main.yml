@@ -30,6 +30,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add subconfigs/**/*.json instances/*.json generated/*.json
+          # 使用更通用的 add 方式，避免路径不存在报错
+          git add subconfigs/ instances/ generated/ || echo "No subdirectories to add"
           git commit -m "Auto-process configs [skip ci]" || echo "No changes to commit"
           git push
