@@ -1,0 +1,35 @@
+name: AstrBot Config Workflow
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  process-configs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Run Migration (if cmd_config.json exists)
+        run: python migrate.py
+
+      - name: Run Build Script
+        run: python build.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add subconfigs/**/*.json instances/*.json generated/*.json
+          git commit -m "Auto-process configs [skip ci]" || echo "No changes to commit"
+          git push
