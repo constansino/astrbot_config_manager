@@ -1,0 +1,4 @@
+*.log
+__pycache__/
+# 忽略 generated 目录下的所有完整配置
+generated/*.json
