@@ -1,29 +1,78 @@
-# AstrBot Config Manager
+# 🤖 AstrBot Config Manager
 
-这是一个用于管理 AstrBot 配置的 Git 模板。它可以将您庞大的 `cmd_config.json` 拆分为多个模块进行精细化管理。
+> **AstrBot 模块化配置管理模板**：将繁琐的单体配置文件拆分为可复用的功能模块，通过 Git 实现版本控制、多实例管理与自动化部署。
 
-## 🚀 快速上手
+---
 
-1.  **Fork 本仓库**：点击右上角的 `Fork`。
-2.  **设置为私有 (强烈建议)**：
-    - 在您 Fork 后的仓库中，前往 `Settings` -> `General`。
-    - 滚动到最下方的 `Danger Zone`，点击 `Change visibility` 改为 **Private**。
-3.  **上传配置**：
-    - 将您现有的 `cmd_config.json` 直接上传到仓库根目录并提交。
-4.  **自动拆分**：
-    - GitHub Actions 会检测到文件，自动运行拆分脚本，并将其移动到 `subconfigs/` 目录下，同时删除原始文件以保护您的隐私。
-5.  **开始管理**：
-    - 您可以在 `subconfigs/` 中按类别修改配置。
-    - 修改提交后，`generated/` 目录下会自动生成合并后的完整配置。
+## 💡 为什么要这样做？ (The Benefits)
 
-## 📁 目录说明
-- `subconfigs/`: 按功能拆分的配置片段。
-- `instances/`: 定义实例（如 astrbot01 使用哪些片段）。
-- `generated/`: **这是最终产物**，您可以直接将其下载/同步到服务器使用。
+传统的 AstrBot 配置（`cmd_config.json`）通常是一个数千行的单体 JSON 文件，这带来了以下问题：
+- **维护难**：修改一个插件参数要在上千行中搜索。
+- **复用难**：如果您想运行两个机器人，必须维护两份巨大的、内容 90% 重复的文件。
+- **风险高**：配置文件中混杂着 API Key、插件逻辑和机器人设定，稍不留神就会在分享配置时泄露敏感信息。
+- **无版本回滚**：手动修改出错后，很难找回之前的正确状态。
 
-## 🛠 如何在服务器同步
-在服务器上：
-```bash
-git clone <您的私有仓库地址>
+**本方案通过“解耦”解决以上痛点：**
+- **原子化修改**：API Key 变了？只需修改 `01_credentials`。模型策略变了？只需修改 `02_models`。
+- **多实例复用**：多个机器人可以共享同一套模型库或凭据库。
+- **Git 审计**：每一次修改都有据可查，随时回滚。
+- **自动化构建**：利用 GitHub Actions 自动合并，确保部署到服务器的永远是最新且格式正确的配置。
+
+---
+
+## 📂 样式对比 (Style Comparison)
+
+### 1. 原始样式 (Before: Monolithic)
+所有的东西都堆在一起，包括密钥、模型参数、插件开关：
+```json
+{
+    "openai_api_key": "sk-...",
+    "model": "gpt-4o",
+    "bot_name": "MyBot",
+    "port": 6181,
+    "plugin_config": { ... },
+    "system_prompt": "...",
+    "config_version": 2
+}
 ```
-之后只需 `git pull` 即可获取最新配置。
+
+### 2. 模块化样式 (After: Modular)
+我们将其拆分为 5 个逻辑目录：
+- **`01_credentials/` (凭据)**：仅存放 API Key 和 Token。
+- **`02_models/` (模型)**：存放 LLM 供应商设置、模型列表和代理。
+- **`03_core/` (核心)**：存放机器人名称、管理员 ID、系统提示词 (Persona)。
+- **`04_connectivity/` (连接)**：存放服务器端口、WebSocket 路径、网络代理。
+- **`05_plugins/` (插件)**：存放所有插件的具体开关和高级配置。
+
+---
+
+## 🚀 快速开始
+
+### 第一步：创建您的私有管理库
+1. **Fork 本项目**。
+2. **务必设置为私有 (Private)**：
+   - 进入仓库的 `Settings` -> `General`。
+   - 滚动到底部 `Danger Zone` -> `Change visibility` -> **Make private**。
+   - *注意：保护您的 API Key 是第一要务。*
+
+### 第二步：迁移现有配置
+1. 将您现有的 `cmd_config.json` 上传到仓库根目录并提交。
+2. **自动化拆分**：GitHub Actions 会自动运行 `migrate.py`：
+   - 将内容按类别拆分到 `subconfigs/` 下的各个 `default.json`。
+   - 自动在 `instances/` 创建初始实例配置。
+   - **自动物理删除原始 `cmd_config.json`**。
+
+### 第三步：管理与部署
+- **管理**：修改 `subconfigs/` 下的小文件，提交后 `generated/` 目录会自动更新。
+- **部署**：在您的 AstrBot 服务器上 `git clone` 您的私有仓库，并将机器人挂载到 `generated/` 下的对应文件。
+
+```yaml
+# docker-compose.yml 示例
+volumes:
+  - ./astrbot_config_manager/generated/astrbot01_cmd_config.json:/AstrBot/data/cmd_config.json
+```
+
+---
+
+## 🛠 技术细节
+本项目基于 Python 实现。`build.py` 会读取 `instances/` 中的组合定义，将选定的子模块 JSON 合并为一个符合 AstrBot 规范的 `config_version: 2` 完整文件。
